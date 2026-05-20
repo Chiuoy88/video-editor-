@@ -1,23 +1,123 @@
-name: Build Flet APK
+import flet as ft
+import os
+import subprocess
 
-on:
-  push:
-    branches: [ main ]
+def main(page: ft.Page):
+    page.title = "Bulk Anti-Copyright Video Tool"
+    page.window_width = 450
+    page.window_height = 750
+    page.theme_mode = ft.ThemeMode.DARK
+    
+    selected_files_paths = []
+    
+    files_count_text = ft.Text("មិនទាន់មានវីដេអូត្រូវបានជ្រើសរើសទេ", color="red")
+    files_list_view = ft.ListView(expand=1, spacing=5, padding=10, auto_scroll=True)
+    progress_bar = ft.ProgressBar(width=400, value=0, visible=False)
+    status_text = ft.Text("", size=16, weight="bold")
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - id: checkout
-        uses: actions/checkout@v4
+    # ១. មុខងារលុបបញ្ជីចោលដើម្បីរើសថ្មី
+    def clear_list(e):
+        nonlocal selected_files_paths
+        selected_files_paths.clear()
+        files_count_text.value = "មិនទាន់មានវីដេអូត្រូវបានជ្រើសរើសទេ"
+        files_count_text.color = "red"
+        files_list_view.controls.clear()
+        progress_bar.visible = False
+        status_text.value = ""
+        page.update()
 
-      - id: setup-python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    # ២. មុខងារចាប់ផ្ដើមកាត់វីដេអូទាំងអស់
+    def process_all_videos(e):
+        if not selected_files_paths:
+            status_text.value = "⚠️ សូមជ្រើសរើសវីដេអូយ៉ាងហោចណាស់ ១ គ្រាប់!"
+            status_text.color = "amber"
+            page.update()
+            return
+            
+        progress_bar.visible = True
+        total_files = len(selected_files_paths)
+        
+        for index, input_file in enumerate(selected_files_paths):
+            current_num = index + 1
+            file_name = os.path.basename(input_file)
+            
+            status_text.value = f"⏳ ({current_num}/{total_files}) កំពុងកាត់៖ {file_name}"
+            status_text.color = "blue"
+            progress_bar.value = current_num / total_files
+            page.update()
 
-      - id: setup-flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          # លោកអ្នកអាចបន្ថែម distribution: 'zulu' ខាងក្រោមនេះបានបើត្រូវការ
+            output_file = os.path.splitext(input_file)[0] + "_no_copyright.mp4"
+            
+            # កូដ FFmpeg សម្រាប់កាត់ផ្ដាច់ Copyright
+            ffmpeg_cmd = f'ffmpeg -i "{input_file}" -vf "hflip,hue=s=1.06:b=0.01" -af "asetrate=44100*1.01,atempo=1/1.01" -metadata title="Edited" -y "{output_file}"'
+            
+            try:
+                subprocess.run(ffmpeg_cmd, shell=True, check=True)
+            except Exception as err:
+                print(f"មានបញ្ហាជាមួយ File {file_name}: {err}")
+                continue
+        
+        status_text.value = f"✅ រួចរាល់ទាំងស្រុង! កាត់បានចំនួន {total_files} វីដេអូជោគជ័យ។"
+        status_text.color = "green"
+        page.update()
+
+    # ៣. របៀបសរសេរ FilePicker បែបថ្មីបំផុតរបស់ Flet (ជៀសវាង Error ដាច់ខាត)
+    file_picker = ft.FilePicker()
+    page.overlay.append(file_picker)
+    
+    # បញ្ជាឱ្យ App ដឹងថាពេលរើស File រួចត្រូវធ្វើអ្វី
+    def file_picker_handle(e: ft.FilePickerResultEvent):
+        nonlocal selected_files_paths
+        if e.files:
+            selected_files_paths = [f.path for f in e.files]
+            files_count_text.value = f"📥 បានជ្រើសរើសវីដេអូសរុប៖ {len(selected_files_paths)} វីដេអូ"
+            files_count_text.color = "green"
+            
+            files_list_view.controls.clear()
+            for f in e.files:
+                files_list_view.controls.append(ft.Text(f"• {os.path.basename(f.path)}", size=12, color="grey"))
+            page.update()
+
+    file_picker.on_result = file_picker_handle
+
+    # ៤. រៀបចំ UI លើអេក្រង់
+    page.add(
+        ft.Container(
+            content=ft.Column([
+                ft.Text("🛡️ Bulk Anti-Copyright Tool", size=22, weight="bold", color="blue"),
+                ft.Text("កាត់វីដេអូ Reup ម្ដងបានច្រើនក្នុងពេលតែមួយ", size=13, color="grey"),
+                ft.Divider(),
+                
+                ft.Row([
+                    ft.ElevatedButton(
+                        "📥 ជ្រើសរើស Files (MP4)", 
+                        on_click=lambda _: file_picker.pick_files(allow_multiple=True)
+                    ),
+                    ft.IconButton(ft.icons.DELETE, on_click=clear_list, icon_color="red", tooltip="លុបបញ្ជីរើសថ្មី")
+                ], alignment=ft.MainAxisAlignment.CENTER),
+                
+                files_count_text,
+                
+                ft.Container(
+                    content=files_list_view,
+                    height=200,
+                    border=ft.border.all(1, "grey"),
+                    border_radius=5,
+                    bgcolor=ft.colors.BLACK26
+                ),
+                
+                ft.Divider(),
+                ft.ElevatedButton("🚀 ចាប់ផ្ដើមកាត់ទាំងអស់", 
+                                  on_click=process_all_videos, 
+                                  style=ft.ButtonStyle(bgcolor="blue", color="white"),
+                                  width=250),
+                
+                ft.Container(height=10),
+                progress_bar,
+                status_text
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=15
+        )
+    )
+
+ft.app(target=main)
