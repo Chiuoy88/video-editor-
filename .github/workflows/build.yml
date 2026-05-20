@@ -1,5 +1,8 @@
-name: Build Flet APK
-
+      - name: Build APK
+        env:
+          FLET_ASSUME_YES: 1
+        run: |
+          flet build apk
 on:
   push:
     branches: [ main ]
