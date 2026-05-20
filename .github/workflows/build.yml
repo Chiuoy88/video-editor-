@@ -10,7 +10,6 @@ jobs:
       - id: checkout
         uses: actions/checkout@v4
 
-      # ជំហានបន្ថែម៖ ដំឡើង Java (JDK) ព្រោះ Android ត្រូវការវាជាដាច់ខាតដើម្បី Build APK
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -27,7 +26,6 @@ jobs:
         with:
           channel: 'stable'
 
-      # ជំហានបន្ថែម៖ ដំឡើងរាល់ Dependencies របស់ Linux ដែល Flutter ត្រូវការ
       - name: Install Linux Dependencies
         run: |
           sudo apt-get update
@@ -36,9 +34,8 @@ jobs:
       - name: Install Flet and Build APK
         run: |
           pip install flet
-          # បន្ថែម --no-docker ដើម្បីឱ្យវា Build ផ្ទាល់លើម៉ាស៊ីន GitHub តែម្តង
-          flet build apk --no-docker
-          
+          flet build apk --no-docker          
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
