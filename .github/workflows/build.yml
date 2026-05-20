@@ -1,6 +1,6 @@
 name: Build Flet APK
 on:
-  push:
+​​ push:
     branches: [ main ]
 
 jobs:
