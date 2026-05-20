@@ -1,7 +1,6 @@
 import flet as ft
 import os
 import subprocess
-
 def main(page: ft.Page):
     page.title = "Bulk Anti-Copyright Video Tool"
     page.window_width = 450
